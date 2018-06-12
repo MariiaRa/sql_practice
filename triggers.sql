@@ -57,7 +57,7 @@ CREATE OR REPLACE FUNCTION aft_update()
   RETURNS trigger AS
 $$
 BEGIN
-INSERT into test_log VALUES (NEW.id,NEW.salary,current_date, CONCAT('Update employer record ',
+INSERT into test_log VALUES (NEW.id,NEW.salary,current_date, CONCAT('Update employee record ',
          OLD.name,' previous salary: ',OLD.salary,', present salary: ',
          NEW.salary));
 RETURN NEW;
@@ -73,5 +73,23 @@ CREATE TRIGGER update_log
 
 UPDATE test SET salary = salary + 123;
 
+--Example AFTER DELETE 
 
+CREATE OR REPLACE FUNCTION aft_delete()
+  RETURNS trigger AS
+$$
+BEGIN
+INSERT into test_log VALUES (OLD.id,OLD.salary,current_date, CONCAT('Update employee ',
+         OLD.NAME,' record, from department ',OLD.dep,' -> Deleted on ',
+         NOW()));
+RETURN NEW;
+END;
+$$
+LANGUAGE 'plpgsql';
+
+CREATE TRIGGER delete_employee
+  AFTER DELETE
+  ON test
+  FOR EACH ROW
+  EXECUTE PROCEDURE aft_delete();
 
