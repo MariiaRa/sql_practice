@@ -73,5 +73,24 @@ FROM crosstab( 'SELECT year, month, qty FROM sales ORDER BY 1', 'SELECT m FROM g
   "October" int, 
   "November" int, 
   "December" int);
+ 
+-- connectby
 
+CREATE TABLE connectby_tree(keyid text, parent_keyid text, pos int);
+
+INSERT INTO connectby_tree VALUES('row1',NULL, 0);
+INSERT INTO connectby_tree VALUES('row2','row1', 0);
+INSERT INTO connectby_tree VALUES('row3','row1', 0);
+INSERT INTO connectby_tree VALUES('row4','row2', 1);
+INSERT INTO connectby_tree VALUES('row5','row2', 0);
+INSERT INTO connectby_tree VALUES('row6','row4', 0);
+INSERT INTO connectby_tree VALUES('row7','row3', 0);
+INSERT INTO connectby_tree VALUES('row8','row6', 0);
+INSERT INTO connectby_tree VALUES('row9','row5', 0);
+
+SELECT * FROM connectby('connectby_tree', 'keyid', 'parent_keyid', 'row2', 0, '->')
+ AS t(keyid text, parent_keyid text, level int, branch text);
+
+SELECT * FROM connectby('connectby_tree', 'keyid', 'parent_keyid', 'pos', 'row2', 0, '->')
+ AS t(keyid text, parent_keyid text, level int, branch text, pos int);
 
