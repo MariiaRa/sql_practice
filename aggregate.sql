@@ -1,103 +1,120 @@
 -- custom aggregate to find the sum of odd numbers
 -- state transition function
 
-create or replace function odds_sfunc(current_sum integer, next integer)
-returns integer
-immutable
-language plpgsql
-as $$
+CREATE OR REPLACE FUNCTION odds_sfunc(current_sum integer, NEXT integer) RETURNS integer IMMUTABLE LANGUAGE PLPGSQL AS $$
 declare
  new_sum integer;
 begin
-   if next%2 = 0 then
+   if next%2 = 0 THEN
     new_sum := current_sum;
-  else
+  ELSE
     new_sum := current_sum + next;
-  end if;
+  END if;
   return new_sum;
-end;
+END;
 $$;
 
 -- create the aggregate by providing the state transition function, internal aggregate state type and initial condition
 
-create aggregate odd_numbers_total (integer)
-(
-    sfunc = odds_sfunc,
-    stype = integer,
-initcond = 0
+CREATE AGGREGATE odd_numbers_total (integer) 
+( 
+ sfunc = odds_sfunc,
+ stype = integer, initcond = 0
 );
 
-select odd_numbers_total(id) from transactions;
 
+SELECT odd_numbers_total(id)
+FROM transactions;
 
 -- custom aggregate to find the greatest running total
 
-create table entries(
-  id serial primary key,
-  amount float8 not null
+CREATE TABLE entries( 
+  id serial PRIMARY KEY,
+  amount float8 NOT NULL
 );
 
-select setseed(0);
 
-insert into entries(amount)
-select (2000 * random()) - 1000
-from generate_series(1, 10);
+SELECT setseed(0);
 
-select
-  id,
-  amount,
-  sum(amount) over (order by id asc) as running_total
-from entries
-order by id asc;
 
-select max (running_total) from ( select sum(amount) over (order by id asc) as running_total from entries) as t;
+INSERT INTO entries(amount)
+SELECT (2000 * random()) - 1000
+FROM generate_series(1, 10);
+
+
+SELECT id,
+       amount,
+       sum(amount) OVER (ORDER BY id ASC) AS running_total
+FROM entries
+ORDER BY id ASC;
+
+
+SELECT MAX (running_total)
+FROM
+  (SELECT sum(amount) OVER (ORDER BY id ASC) AS running_total
+   FROM entries) AS t;
 
 -- or aggregate to calculate greatest running total
 -- state transition function
 
-create function grt_sfunc(agg_state point, el float8)
-returns point
-immutable
-language plpgsql
-as $$
+CREATE FUNCTION grt_sfunc(agg_state POINT, el float8) RETURNS POINT IMMUTABLE LANGUAGE PLPGSQL AS $$
 declare
   greatest_sum float8;
   current_sum float8;
 begin
   current_sum := agg_state[0] + el;
-  if agg_state[1] < current_sum then
+  if agg_state[1] < current_sum THEN
     greatest_sum := current_sum;
-  else
+  ELSE
     greatest_sum := agg_state[1];
-  end if;
+  END if;
 
   return point(current_sum, greatest_sum);
-end;
+END;
 $$;
 
 -- Because our aggregate's internal state is of type point and the output of our aggregate is float8, we need an aggregate final function that takes the final value of the aggregate's internal state and converts it to a float8.
 
-create function grt_finalfunc(agg_state point)
+CREATE FUNCTION grt_finalfunc(agg_state POINT) RETURNS float8 IMMUTABLE STRICT LANGUAGE PLPGSQL AS $$
+begin
+  return agg_state[1];
+END;
+$$;
+
+-- create the aggregate by providing the state transition function, internal aggregate state type, the final function and initial condition.
+
+CREATE AGGREGATE greatest_running_total (float8) 
+( 
+  sfunc = grt_sfunc,
+  stype = POINT,
+  finalfunc = grt_finalfunc 
+  initcond = '(0.0 ,0.0 )'
+);
+
+
+SELECT greatest_running_total(amount ORDER BY id ASC)
+FROM entries;
+
 returns float8
 immutable
 strict
 language plpgsql
-as $$
+AS $$
 begin
   return agg_state[1];
-end;
+END;
 $$;
 
  -- create the aggregate by providing the state transition function, internal aggregate state type, the final function and initial condition. 
 
-create aggregate greatest_running_total (float8)
+CREATE aggregate greatest_running_total (float8)
 (
-    sfunc = grt_sfunc,
-    stype = point,
-    finalfunc = grt_finalfunc
- initcond = '(0.0 ,0.0 )'
+  sfunc = grt_sfunc,
+  stype = point,
+  finalfunc = grt_finalfunc
+  initcond = '(0.0 ,0.0 )'
 );
 
-select greatest_running_total(amount order by id asc)
-from entries;
+SELECT greatest_running_total(amount ORDER BY id ASC)
+FROM entries;
 
